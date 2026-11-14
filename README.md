@@ -12,7 +12,7 @@ the hash links between links, expiry, revocation, and that each delegation only 
 Needs Python 3.9+ and git.
 
 ```sh
-git clone https://github.com/ce-net/capability-verify && cd capability-verify
+git clone https://github.com/ce-net/ce-net-capability-verify && cd ce-net-capability-verify
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 python3 test_vectors.py
