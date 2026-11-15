@@ -1,6 +1,7 @@
 # capability-verify
 
-Verify a ce-net capability chain **offline**, in one small Python file, with no ce-net code and no network.
+Verify a ce-net capability chain, or a file of signed call receipts, **offline**, in one small Python file,
+with no ce-net code, no network and no packages (Python standard library only).
 
 A ce-net capability is a chain of signed links: a root key grants abilities to a holder, who may
 delegate a narrower subset onward. `verify.py` decodes the token, checks every Ed25519 signature,
@@ -9,12 +10,10 @@ the hash links between links, expiry, revocation, and that each delegation only 
 
 ## Quick start (under 5 minutes)
 
-Needs Python 3.9+ and git.
+Needs Python 3.9+ and git. Installing `cryptography` (`pip install -r requirements.txt`) is optional and only makes signature checks faster.
 
 ```sh
 git clone https://github.com/ce-net/ce-net-capability-verify && cd ce-net-capability-verify
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
 python3 test_vectors.py
 ```
 
@@ -34,6 +33,9 @@ ok   tampered                           link 1: invalid signature
 ok   amplified                          link 1: abilities exceed the parent
 ok   wrong-root                         capability chain does not root at an accepted authority
 12/12 vectors pass
+ok   20 honest receipts verify
+...
+9/9 receipt checks pass
 ```
 
 ## Verify a token yourself
@@ -72,6 +74,27 @@ INVALID: link 1: invalid signature
 
 Exit code is 0 for valid, 1 for invalid. Without `NOW` the current time is used.
 
+## Verify call receipts
+
+A receipt is one JSON line per call, signed by the node that ran it and hash-linked to that node's
+previous receipt. Each names the call's cell, caller, input and output hashes, and the capability chain
+the caller presented. `verify.py` checks every signature, every capability chain (valid at the call's
+time, held by the caller, granting `cell:<name>`), and each node's chain for gaps, edits and replays:
+
+```sh
+python3 verify.py receipts.jsonl --root 86f9f18295a18b9d604ef9a56a9047a0cc2e69f200e5f84d9b1f3cd267c6e40f
+```
+
+```
+20 receipts from 1 node(s), capability root 86f9f18295a18b9d
+  node      receipts  valid  chain                    cells
+  b7e26cb9        20     20  intact seq 0..19         mcp.echo
+VALID: 20 of 20 receipts valid
+```
+
+`--nodes HEX,HEX` also pins which node keys may sign. The format and the middleware that writes
+receipts are in [demo-signed-receipts](https://github.com/ce-net/demo-demo-signed-receipts).
+
 ## Use it as a library
 
 ```python
@@ -106,8 +129,9 @@ Abilities match exactly, by `*`, or by a `prefix:*` wildcard (`app:spawn:*` cove
 - Revocations are passed in as `(issuer, nonce)` pairs; fetching them is up to you.
 - Resource ceilings (`max_cpu`, `max_mem_mb`, `max_credits`, `allowed_ports`, `path_prefix`) are
   checked for narrowing across the chain but enforced by whatever consumes the capability.
-- Signature checks use the `cryptography` package (RFC 8032 Ed25519). Honest signatures verify
-  identically everywhere; adversarial edge cases (small-order keys) may differ between libraries.
+- Signature checks are RFC 8032 Ed25519: the `cryptography` package when installed, otherwise a short
+  pure-Python implementation in the same file (slower, about 15 ms per signature). Honest signatures
+  verify identically everywhere; adversarial edge cases (small-order keys) may differ between libraries.
 
 ## License
 
