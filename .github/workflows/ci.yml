@@ -18,3 +18,4 @@ jobs:
           TOKEN=$(python3 -c "import json; print(json.load(open('vectors.json'))['chains'][1]['chain_hex'])")
           python3 verify.py $ROOT $TOKEN 1700000100 | grep -q '^VALID'
           if python3 verify.py $ROOT $TOKEN 1700003601; then exit 1; fi
+          python3 verify.py use vectors_v3_read_receipt.json

@@ -121,6 +121,51 @@ cap_id    = sha256(signed)                              each child's `parent` is
 
 Abilities match exactly, by `*`, or by a `prefix:*` wildcard (`app:spawn:*` covers `app:spawn:wasm`).
 
+## Token v3: verify one use, conditions included
+
+ce-net-proto's v3 tokens (magic `CEC3`, [CAPABILITY-PROGRAMS.md](https://github.com/ce-net/ce-net-proto/blob/main/docs/CAPABILITY-PROGRAMS.md))
+carry delegation rights and conditions: `Requires` (a witness attests something was done first, such as a read
+receipt), `CoSign` (a key signs the exact request) and `Via` (a broker approves it). `verify_use` in the same
+`verify.py` runs the node-side check of one plain call: the chain, the use request and its proofs.
+
+```sh
+python3 test_vectors.py
+```
+
+```
+ok   wechat-read-then-write             allowed
+ok   wechat-write-unread                refused: condition not met: requires
+...
+28/28 ce-net-proto v3 plain-call uses agree (24 skipped: program steps, or P-256 without the cryptography package)
+
+ok   refused-without-receipt            refused: condition not met: requires
+ok   accepted-with-receipt              allowed
+...
+13/13 use vectors pass
+```
+
+`vectors_v3.json` is ce-net-proto's conformance set (Apache-2.0, copied from `tests/v3_vectors.json`).
+`vectors_v3_read_receipt.json` is from [demo-read-before-act](https://github.com/ce-net/demo-demo-read-before-act): an
+approve key that works only after the reader's phone signs a read receipt. Check any file in that format with:
+
+```sh
+python3 verify.py use vectors_v3_read_receipt.json
+```
+
+As a library:
+
+```python
+from verify import verify_use
+leaf = verify_use(token_hex, roots=[("ed25519", root_bytes)], node=node_id_bytes, requester=("ed25519", holder_bytes),
+                  action="change.approve:approve", now=1800000070, request_hex=req_hex, proofs_hex=proofs_hex,
+                  body_sha256=sha256_of_body, cell_keys={"wechat.read": [("ed25519", key_bytes)]})
+```
+
+Ed25519 needs only the standard library; P-256 links (a passkey device key) need `cryptography`, and without it
+those uses are skipped, never passed. It fails closed on what it does not implement: WebAuthn signatures, `Limits`, `Egress` and `Programs` caveats,
+program bodies, v1 links inside a v3 chain. It is stateless: use counters and the replay log (`request replayed`)
+are the executing node's.
+
 ## Limits
 
 - This checks a chain against a root you trust. It does not check that the resource names *your*
